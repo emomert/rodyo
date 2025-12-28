@@ -77,6 +77,12 @@ header {
     padding-bottom: 1rem;
 }
 
+.notice {
+    font-size: 0.75rem;
+    opacity: 0.75;
+    letter-spacing: 0.08rem;
+}
+
 
 .ascii-art {
     font-family: monospace;
@@ -187,6 +193,11 @@ button.primary:hover {
     box-shadow: 0 0 15px var(--secondary-color);
 }
 
+button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
 /* Chat Section */
 .chat-container {
     display: flex;
@@ -208,18 +219,49 @@ button.primary:hover {
     gap: 0.5rem;
 }
 
-input[type="text"] {
+.chat-input-group input[type="text"] {
+    flex-grow: 1;
+}
+
+.field-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.field-hint {
+    font-size: 0.7rem;
+    opacity: 0.7;
+}
+
+.field-error {
+    margin-top: 1rem;
+    padding: 0.6rem 0.8rem;
+    border: 1px solid #ff5555;
+    color: #ff5555;
+    background: rgba(255, 0, 0, 0.08);
+    font-size: 0.75rem;
+}
+
+input[type="text"],
+textarea,
+select {
     background: rgba(0, 0, 0, 0.5);
     border: 1px solid var(--glass-border);
     color: var(--accent-color);
     padding: 0.5rem;
-    flex-grow: 1;
     font-family: var(--font-main);
 }
 
-input[type="text"]:focus {
+input[type="text"]:focus,
+textarea:focus,
+select:focus {
     outline: none;
     border-color: var(--accent-color);
+}
+
+textarea {
+    resize: vertical;
 }
 
 /* Audio Visualizer */

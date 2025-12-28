@@ -24,6 +24,7 @@ const chatInput = document.getElementById('chat-input');
 const btnSendChat = document.getElementById('btn-send-chat');
 const listenerRole = document.getElementById('listener-role');
 const parentNodeIdDisplay = document.getElementById('parent-node-id');
+const meshStatus = document.getElementById('mesh-status');
 const totalListenerCountDisplay = document.getElementById('total-listener-count');
 const peerListContainer = document.getElementById('peer-list');
 const listenerMgmt = document.getElementById('listener-mgmt');
@@ -34,6 +35,14 @@ const settingHandle = document.getElementById('setting-handle');
 const settingName = document.getElementById('setting-name');
 const settingGenre = document.getElementById('setting-genre');
 const settingTheme = document.getElementById('setting-theme');
+const settingSigMode = document.getElementById('setting-sig-mode');
+const settingSigHost = document.getElementById('setting-sig-host');
+const settingSigPort = document.getElementById('setting-sig-port');
+const settingSigPath = document.getElementById('setting-sig-path');
+const settingSigSecure = document.getElementById('setting-sig-secure');
+const settingIceServers = document.getElementById('setting-ice-servers');
+const setupError = document.getElementById('setup-error');
+const signalingSettings = document.getElementById('signaling-settings');
 const headerTagline = document.getElementById('station-tagline');
 
 // Mesh Configuration
@@ -53,31 +62,57 @@ let animationId = null;
 // Peer Registry (Broadcaster only)
 let peerRegistry = {};
 
-// Settings State
-let stationConfig = {
+const DEFAULT_NETWORK_CONFIG = {
+    signalingMode: 'self-hosted',
+    signalingHost: '',
+    signalingPort: '',
+    signalingPath: '/peerjs',
+    signalingSecure: true,
+    iceServers: [
+        'stun:stun.l.google.com:19302',
+        'stun:stun1.l.google.com:19302',
+        'stun:stun2.l.google.com:19302'
+    ]
+};
+
+const DEFAULT_CONFIG = {
     handle: '',
     name: 'RODYO STATION',
     genre: 'P2P MESH BROADCASTING // ANALOG SOUL',
-    theme: 'matrix-green'
+    theme: 'matrix-green',
+    network: DEFAULT_NETWORK_CONFIG
 };
+
+// Settings State
+let stationConfig = cloneDefaultConfig();
 
 // Initialization
 const urlParams = new URLSearchParams(window.location.search);
 const targetStationId = urlParams.get('station');
+const networkFromUrl = parseNetworkConfigFromUrl(urlParams, Boolean(targetStationId));
 
 if (targetStationId) {
+    stationConfig.network = networkFromUrl;
     onboardingUi.style.display = 'none';
     dashboardUi.style.display = 'grid';
     showListenerUI();
+    applySettingsLocally();
 } else {
-    loadAndApplySettings();
     showBroadcasterUI();
+    loadAndApplySettings();
 }
+
+setChatEnabled(false);
 
 function loadAndApplySettings() {
     const saved = localStorage.getItem('rodyo_config');
     if (saved) {
-        stationConfig = JSON.parse(saved);
+        try {
+            stationConfig = mergeConfig(JSON.parse(saved));
+        } catch (err) {
+            console.warn('Failed to parse saved config, using defaults.', err);
+            stationConfig = cloneDefaultConfig();
+        }
     }
 
     if (isBroadcaster) {
@@ -85,6 +120,13 @@ function loadAndApplySettings() {
         settingName.value = stationConfig.name === 'RODYO STATION' ? '' : stationConfig.name;
         settingGenre.value = stationConfig.genre.includes('P2P') ? '' : stationConfig.genre;
         settingTheme.value = stationConfig.theme;
+        settingSigMode.value = stationConfig.network.signalingMode;
+        settingSigHost.value = stationConfig.network.signalingHost;
+        settingSigPort.value = stationConfig.network.signalingPort;
+        settingSigPath.value = stationConfig.network.signalingPath;
+        settingSigSecure.checked = Boolean(stationConfig.network.signalingSecure);
+        settingIceServers.value = stationConfig.network.iceServers.join('\n');
+        updateNetworkUi();
     }
 
     applySettingsLocally();
@@ -94,10 +136,11 @@ function applySettingsLocally() {
     document.body.setAttribute('data-theme', stationConfig.theme);
     headerTagline.textContent = stationConfig.genre;
     document.title = `${stationConfig.name} // RODYO`;
+    updateMeshStatus();
 }
 
 btnStartSetup.addEventListener('click', () => {
-    saveSettings();
+    if (!saveSettings()) return;
     onboardingUi.style.display = 'none';
     dashboardUi.style.display = 'grid';
 });
@@ -107,11 +150,39 @@ btnEditSettings.addEventListener('click', () => {
     dashboardUi.style.display = 'none';
 });
 
+if (settingSigMode) {
+    settingSigMode.addEventListener('change', () => {
+        updateNetworkUi();
+        clearSetupError();
+    });
+}
+
 function saveSettings() {
-    stationConfig.handle = settingHandle.value.trim().toLowerCase().replace(/\s+/g, '-');
+    clearSetupError();
+
+    stationConfig.handle = normalizeHandle(settingHandle.value);
     stationConfig.name = settingName.value || 'RODYO STATION';
     stationConfig.genre = settingGenre.value || 'P2P MESH BROADCASTING // ANALOG SOUL';
     stationConfig.theme = settingTheme.value;
+    stationConfig.network.signalingMode = settingSigMode.value;
+    stationConfig.network.signalingHost = settingSigHost.value.trim();
+    stationConfig.network.signalingPort = settingSigPort.value.trim();
+    stationConfig.network.signalingPath = settingSigPath.value.trim() || '/peerjs';
+    stationConfig.network.signalingSecure = Boolean(settingSigSecure.checked);
+    stationConfig.network.iceServers = parseIceServersInput(settingIceServers.value);
+
+    if (stationConfig.network.signalingMode === 'self-hosted' && !stationConfig.network.signalingHost) {
+        showSetupError('Signaling host is required for self-hosted mode.');
+        return false;
+    }
+
+    if (stationConfig.network.signalingPort) {
+        const parsedPort = Number(stationConfig.network.signalingPort);
+        if (!Number.isInteger(parsedPort) || parsedPort <= 0 || parsedPort > 65535) {
+            showSetupError('Signaling port must be a valid number between 1 and 65535.');
+            return false;
+        }
+    }
 
     localStorage.setItem('rodyo_config', JSON.stringify(stationConfig));
     applySettingsLocally();
@@ -126,6 +197,13 @@ function saveSettings() {
     }
 
     addChatMessage('System', 'Station configuration updated.');
+
+    if (peer && peer.open && isBroadcaster) {
+        const shareUrl = buildShareUrl(peer.id);
+        addChatMessage('System', `Updated share link: ${shareUrl}`);
+    }
+
+    return true;
 }
 
 function showBroadcasterUI() {
@@ -141,33 +219,199 @@ function showListenerUI() {
     addChatMessage('System', `Searching for entry point to station: ${targetStationId}`);
 }
 
-// PeerJS Setup
-function initPeer() {
-    // If broadcaster has a handle, use it as the ID
-    const customId = (isBroadcaster && stationConfig.handle) ? stationConfig.handle : null;
+function cloneDefaultConfig() {
+    return {
+        ...DEFAULT_CONFIG,
+        network: {
+            ...DEFAULT_NETWORK_CONFIG,
+            iceServers: [...DEFAULT_NETWORK_CONFIG.iceServers]
+        }
+    };
+}
 
-    // Production ICE Servers for NAT Traversal (Friends connecting over public internet)
-    const peerConfig = {
+function mergeConfig(saved) {
+    const base = cloneDefaultConfig();
+    if (!saved || typeof saved !== 'object') return base;
+
+    const merged = { ...base, ...saved };
+    merged.network = { ...base.network, ...(saved.network || {}) };
+    merged.network.signalingMode = saved.network && saved.network.signalingMode === 'public' ? 'public' : 'self-hosted';
+    merged.network.signalingPort = merged.network.signalingPort ? String(merged.network.signalingPort) : '';
+    merged.network.iceServers = normalizeIceServers(merged.network.iceServers);
+    if (!merged.network.iceServers.length) {
+        merged.network.iceServers = [...DEFAULT_NETWORK_CONFIG.iceServers];
+    }
+    return merged;
+}
+
+function normalizeHandle(value) {
+    return value
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9-_]+/g, '-')
+        .replace(/^-+|-+$/g, '');
+}
+
+function normalizeIceServers(value) {
+    if (Array.isArray(value)) {
+        return value.map(item => String(item).trim()).filter(Boolean);
+    }
+    if (typeof value === 'string') {
+        return value
+            .split(/[\n,]+/)
+            .map(item => item.trim())
+            .filter(Boolean);
+    }
+    return [];
+}
+
+function parseIceServersInput(input) {
+    const servers = normalizeIceServers(input);
+    return servers.length ? servers : [...DEFAULT_NETWORK_CONFIG.iceServers];
+}
+
+function getPublicNetworkConfig() {
+    return {
+        ...DEFAULT_NETWORK_CONFIG,
+        signalingMode: 'public',
+        iceServers: [...DEFAULT_NETWORK_CONFIG.iceServers]
+    };
+}
+
+function parseNetworkConfigFromUrl(params, isListener) {
+    const modeParam = params.get('sigMode');
+    if (!modeParam) {
+        return isListener ? getPublicNetworkConfig() : null;
+    }
+
+    const config = cloneDefaultConfig().network;
+    config.signalingMode = modeParam === 'public' ? 'public' : 'self-hosted';
+    config.signalingHost = params.get('sigHost') || '';
+    config.signalingPort = params.get('sigPort') || '';
+    config.signalingPath = params.get('sigPath') || config.signalingPath;
+    const secureParam = params.get('sigSecure');
+    config.signalingSecure = secureParam === null ? true : secureParam === '1';
+    const iceParam = params.get('ice');
+    if (iceParam) {
+        config.iceServers = parseIceServersInput(iceParam);
+    }
+
+    return config;
+}
+
+function updateNetworkUi() {
+    if (!isBroadcaster || !settingSigMode || !signalingSettings) return;
+    const isPublic = settingSigMode.value === 'public';
+    signalingSettings.style.display = isPublic ? 'none' : 'block';
+}
+
+function showSetupError(message) {
+    if (!setupError) return;
+    setupError.textContent = message;
+    setupError.style.display = 'block';
+}
+
+function clearSetupError() {
+    if (!setupError) return;
+    setupError.textContent = '';
+    setupError.style.display = 'none';
+}
+
+function setChatEnabled(enabled) {
+    if (!chatInput || !btnSendChat) return;
+    chatInput.disabled = !enabled;
+    btnSendChat.disabled = !enabled;
+    chatInput.placeholder = enabled ? 'Type a message...' : 'Connect to chat to start typing...';
+}
+
+function updateMeshStatus() {
+    if (!meshStatus) return;
+    const modeLabel = stationConfig.network.signalingMode === 'public' ? 'Public' : 'Self-hosted';
+    meshStatus.textContent = `[Protocol: Mesh | Signal: ${modeLabel}]`;
+}
+
+function buildShareUrl(peerId) {
+    const params = new URLSearchParams();
+    params.set('station', peerId);
+    const network = stationConfig.network || getPublicNetworkConfig();
+    params.set('sigMode', network.signalingMode);
+    if (network.signalingMode !== 'public') {
+        if (network.signalingHost) params.set('sigHost', network.signalingHost);
+        if (network.signalingPort) params.set('sigPort', network.signalingPort);
+        if (network.signalingPath) params.set('sigPath', network.signalingPath);
+        params.set('sigSecure', network.signalingSecure ? '1' : '0');
+    }
+    const iceServers = normalizeIceServers(network.iceServers);
+    if (iceServers.length) params.set('ice', iceServers.join(','));
+    return `${window.location.origin}${window.location.pathname}?${params.toString()}`;
+}
+
+function validateNetworkConfig() {
+    const network = stationConfig.network || getPublicNetworkConfig();
+    if (network.signalingMode !== 'public' && !network.signalingHost) {
+        return { ok: false, message: 'Signaling host is required for self-hosted mode.' };
+    }
+    if (network.signalingPort) {
+        const parsedPort = Number(network.signalingPort);
+        if (!Number.isInteger(parsedPort) || parsedPort <= 0 || parsedPort > 65535) {
+            return { ok: false, message: 'Signaling port must be a valid number between 1 and 65535.' };
+        }
+    }
+    return { ok: true };
+}
+
+function buildPeerOptions() {
+    const network = stationConfig.network || getPublicNetworkConfig();
+    const iceServers = normalizeIceServers(network.iceServers);
+    const resolvedIceServers = iceServers.length ? iceServers : [...DEFAULT_NETWORK_CONFIG.iceServers];
+    const options = {
         debug: 1,
         config: {
-            'iceServers': [
-                { urls: 'stun:stun.l.google.com:19302' },
-                { urls: 'stun:stun1.l.google.com:19302' },
-                { urls: 'stun:stun2.l.google.com:19302' },
-            ]
+            iceServers: resolvedIceServers.map(url => ({ urls: url }))
         }
     };
 
-    peer = new Peer(customId, peerConfig);
+    if (network.signalingMode !== 'public') {
+        const host = network.signalingHost.trim();
+        if (!host) {
+            addChatMessage('System', 'Signaling host is required for self-hosted mode.');
+            return null;
+        }
+        options.host = host;
+        if (network.signalingPort) {
+            const parsedPort = Number(network.signalingPort);
+            if (!Number.isInteger(parsedPort) || parsedPort <= 0 || parsedPort > 65535) {
+                addChatMessage('System', 'Signaling port must be a valid number between 1 and 65535.');
+                return null;
+            }
+            options.port = parsedPort;
+        }
+        options.path = network.signalingPath || '/peerjs';
+        options.secure = Boolean(network.signalingSecure);
+    }
+
+    return options;
+}
+
+// PeerJS Setup
+function initPeer() {
+    if (peer) return true;
+    // If broadcaster has a handle, use it as the ID
+    const customId = (isBroadcaster && stationConfig.handle) ? stationConfig.handle : null;
+    const peerOptions = buildPeerOptions();
+    if (!peerOptions) return false;
+
+    peer = new Peer(customId, peerOptions);
 
     peer.on('open', (id) => {
         console.log('My peer ID is: ' + id);
+        setChatEnabled(true);
         if (isBroadcaster) {
             stationIdDisplay.textContent = id;
             statusTag.textContent = '[LIVE]';
             statusTag.style.color = 'var(--accent-color)';
 
-            const shareUrl = `${window.location.origin}${window.location.pathname}?station=${id}`;
+            const shareUrl = buildShareUrl(id);
             addChatMessage('System', `Broadcasting live! Share this link: ${shareUrl}`);
 
             // Broadcaster registers itself
@@ -193,7 +437,22 @@ function initPeer() {
     peer.on('error', (err) => {
         console.error('PeerJS error:', err);
         addChatMessage('System', `Error: ${err.type}`);
+        if (err.type === 'unavailable-id' && isBroadcaster) {
+            addChatMessage('System', 'Station handle is taken. Pick a different handle and try again.');
+        }
+        setChatEnabled(false);
+        if (!isBroadcaster && btnTuneIn) btnTuneIn.disabled = false;
     });
+
+    peer.on('close', () => {
+        setChatEnabled(false);
+    });
+
+    peer.on('disconnected', () => {
+        setChatEnabled(false);
+    });
+
+    return true;
 }
 
 function handleIncomingConnection(conn) {
@@ -296,7 +555,10 @@ function setupMeshConnection(conn, isChild) {
             }
         } else if (data.type === 'STATION_UPDATE') {
             // Listener logic: Update visual theme and metadata
-            stationConfig = data.config;
+            stationConfig = mergeConfig({
+                ...data.config,
+                network: data.config.network || stationConfig.network
+            });
             applySettingsLocally();
         } else if (data.type === 'MOD_KICK') {
             addChatMessage('System', 'You have been removed from the station by the broadcaster.');
@@ -338,6 +600,7 @@ function setupMeshConnection(conn, isChild) {
         } else {
             parentConn = null;
             addChatMessage('System', 'Disconnected from relay node.');
+            if (!isBroadcaster && btnTuneIn) btnTuneIn.disabled = false;
         }
         updateListenerCountDisplay();
     });
@@ -406,9 +669,19 @@ window.kickPeer = function (peerId) {
 };
 // Broadcasting Logic
 btnStartBroadcast.addEventListener('click', async () => {
+    const validation = validateNetworkConfig();
+    if (!validation.ok) {
+        addChatMessage('System', validation.message);
+        return;
+    }
+    btnStartBroadcast.disabled = true;
     try {
         localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        initPeer();
+        if (!initPeer()) {
+            localStream.getTracks().forEach(track => track.stop());
+            btnStartBroadcast.disabled = false;
+            return;
+        }
 
         // Start Visualizer
         startVisualizer(localStream, broadcasterCanvas);
@@ -421,6 +694,7 @@ btnStartBroadcast.addEventListener('click', async () => {
     } catch (err) {
         console.error('Failed to get local stream', err);
         addChatMessage('System', 'Error: Could not access microphone.');
+        btnStartBroadcast.disabled = false;
     }
 });
 
@@ -433,13 +707,17 @@ btnStopBroadcast.addEventListener('click', () => {
 // Listener Logic
 btnTuneIn.addEventListener('click', () => {
     if (!targetStationId) return;
+    btnTuneIn.disabled = true;
 
     // "Prime" the audio element to unlock it for mobile autoplay
     if (remoteAudio) {
         remoteAudio.play().catch(() => { /* Silent failure is expected here */ });
     }
 
-    initPeer();
+    if (!initPeer()) {
+        btnTuneIn.disabled = false;
+        return;
+    }
     peer.on('open', () => {
         connectToNode(targetStationId);
     });
@@ -562,6 +840,10 @@ chatInput.addEventListener('keypress', (e) => {
 function sendChat() {
     const msg = chatInput.value.trim();
     if (!msg) return;
+    if (!peer || !peer.open) {
+        addChatMessage('System', 'Chat is offline until you connect.');
+        return;
+    }
 
     const chatData = {
         type: 'chat',
@@ -583,7 +865,18 @@ function addChatMessage(user, msg) {
     const div = document.createElement('div');
     div.classList.add('msg');
     if (user === 'System') div.classList.add('system');
-    div.innerHTML = `<span style="opacity: 0.5; font-size: 0.7rem;">[${time}]</span> <strong>${user}:</strong> ${msg}`;
+    const timeSpan = document.createElement('span');
+    timeSpan.style.opacity = '0.5';
+    timeSpan.style.fontSize = '0.7rem';
+    timeSpan.textContent = `[${time}] `;
+
+    const nameStrong = document.createElement('strong');
+    nameStrong.textContent = `${user}: `;
+
+    const textSpan = document.createElement('span');
+    textSpan.textContent = String(msg);
+
+    div.append(timeSpan, nameStrong, textSpan);
     chatMessages.appendChild(div);
     chatMessages.scrollTop = chatMessages.scrollHeight;
 }

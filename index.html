@@ -16,6 +16,7 @@
         style="font-size: 3rem; font-weight: bold; letter-spacing: 0.5rem; color: var(--accent-color); text-shadow: 0 0 10px var(--accent-color);">
         RODYO</div>
       <p id="station-tagline" style="margin-top: 0.5rem; opacity: 0.8;">P2P MESH BROADCASTING // ANALOG SOUL</p>
+      <p class="notice" style="margin-top: 0.75rem;">P2P ONLY // NO CENTRAL STORAGE // YOU CONTROL THE BROADCAST</p>
     </header>
 
     <main>
@@ -43,7 +44,38 @@
               <option value="amber-classic">Amber Classic</option>
             </select>
           </div>
+          <div class="field-group">
+            <label>Network Mode</label>
+            <select id="setting-sig-mode">
+              <option value="self-hosted">Self-hosted signaling (recommended)</option>
+              <option value="public">Public PeerJS Cloud (centralized fallback)</option>
+            </select>
+            <small class="field-hint">Listeners must use the same signaling server. Share links include these settings.</small>
+          </div>
+          <div id="signaling-settings">
+            <div class="field-group">
+              <label>Signaling Host</label>
+              <input type="text" id="setting-sig-host" placeholder="peer.example.com">
+            </div>
+            <div class="field-group">
+              <label>Signaling Port</label>
+              <input type="text" id="setting-sig-port" placeholder="443">
+            </div>
+            <div class="field-group">
+              <label>Signaling Path</label>
+              <input type="text" id="setting-sig-path" placeholder="/peerjs">
+            </div>
+            <div class="field-group">
+              <label><input type="checkbox" id="setting-sig-secure" checked> Secure (TLS)</label>
+            </div>
+          </div>
+          <div class="field-group">
+            <label>ICE Servers (STUN/TURN, comma or newline)</label>
+            <textarea id="setting-ice-servers" rows="3"
+              placeholder="stun:stun.l.google.com:19302"></textarea>
+          </div>
         </div>
+        <div id="setup-error" class="field-error" style="display: none;"></div>
         <button id="btn-start-setup" class="primary" style="margin-top: 2rem; width: 100%; padding: 1rem;">Initialize
           Station & Go to Dashboard</button>
       </section>
