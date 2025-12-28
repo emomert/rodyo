@@ -23,6 +23,7 @@ const parentNodeIdDisplay = document.getElementById('parent-node-id');
 const totalListenerCountDisplay = document.getElementById('total-listener-count');
 const peerListContainer = document.getElementById('peer-list');
 const listenerMgmt = document.getElementById('listener-mgmt');
+const remoteAudio = document.getElementById('remote-audio');
 
 // Settings Elements
 const settingHandle = document.getElementById('setting-handle');
@@ -423,6 +424,12 @@ btnStopBroadcast.addEventListener('click', () => {
 // Listener Logic
 btnTuneIn.addEventListener('click', () => {
     if (!targetStationId) return;
+
+    // "Prime" the audio element to unlock it for mobile autoplay
+    if (remoteAudio) {
+        remoteAudio.play().catch(() => { /* Silent failure is expected here */ });
+    }
+
     initPeer();
     peer.on('open', () => {
         connectToNode(targetStationId);
@@ -452,9 +459,20 @@ function connectToNode(nodeId) {
 
 function handleRemoteStream(stream) {
     currentRemoteStream = stream;
-    const audio = new Audio();
-    audio.srcObject = stream;
-    audio.play();
+    if (remoteAudio) {
+        remoteAudio.srcObject = stream;
+        remoteAudio.play().catch(err => {
+            console.error('Audio playback failed:', err);
+            addChatMessage('System', '⚠️ Audio blocked by browser. Please tap the screen to enable sound.');
+
+            // Fallback: unlock on next click anywhere
+            const unlock = () => {
+                remoteAudio.play();
+                document.removeEventListener('click', unlock);
+            };
+            document.addEventListener('click', unlock);
+        });
+    }
     addChatMessage('System', 'Streaming audio started.');
 
     // Start visualizer animation
