@@ -1,0 +1,253 @@
+:root {
+    --bg-color: #0d0221;
+    --panel-color: rgba(30, 10, 60, 0.7);
+    --accent-color: #00ff41;
+    /* CRT Green */
+    --secondary-color: #ff00ff;
+    /* Neon Pink */
+    --text-color: #00ff41;
+    --font-main: 'Courier New', Courier, monospace;
+    --glass-bg: rgba(255, 255, 255, 0.05);
+    --glass-border: rgba(255, 255, 255, 0.1);
+}
+
+/* Themes */
+[data-theme="cyber-pink"] {
+    --accent-color: #ff00ff;
+    --text-color: #ff00ff;
+    --secondary-color: #00ffff;
+}
+
+[data-theme="amber-classic"] {
+    --accent-color: #ffb000;
+    --text-color: #ffb000;
+    --secondary-color: #00ff41;
+}
+
+[data-theme="matrix-green"] {
+    --accent-color: #00ff41;
+    --text-color: #00ff41;
+    --secondary-color: #ff00ff;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    font-family: var(--font-main);
+    overflow-x: hidden;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Scanline Effect */
+body::before {
+    content: " ";
+    display: block;
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    right: 0;
+    background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+    z-index: 2;
+    background-size: 100% 2px, 3px 100%;
+    pointer-events: none;
+}
+
+/* Main Container */
+#app {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 2rem;
+    width: 100%;
+    z-index: 10;
+}
+
+header {
+    text-align: center;
+    margin-bottom: 3rem;
+    border-bottom: 2px solid var(--accent-color);
+    padding-bottom: 1rem;
+}
+
+
+.ascii-art {
+    font-family: monospace;
+    white-space: pre;
+    font-size: 0.7rem;
+    line-height: 1.1;
+    margin: 1rem auto;
+    color: var(--accent-color);
+    text-shadow: 0 0 10px var(--accent-color);
+    display: inline-block;
+    text-align: left;
+}
+
+/* Radio Station Grid */
+.station-grid {
+    display: grid;
+    grid-template-columns: 1fr 350px;
+    gap: 2rem;
+}
+
+@media (max-width: 900px) {
+    .station-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Station Panel (Glassmorphism) */
+.panel {
+    background: var(--glass-bg);
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--glass-border);
+    border-radius: 8px;
+    padding: 1.5rem;
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+    position: relative;
+}
+
+.panel-header {
+    border-bottom: 1px solid var(--accent-color);
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    font-weight: bold;
+    font-size: 1.2rem;
+    display: flex;
+    justify-content: space-between;
+}
+
+/* Radio Dials & Controls */
+.controls {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.dial-container {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.dial {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    border: 4px solid var(--accent-color);
+    position: relative;
+    cursor: pointer;
+    background: #111;
+}
+
+.dial::after {
+    content: "";
+    position: absolute;
+    top: 10%;
+    left: 50%;
+    width: 4px;
+    height: 40%;
+    background: var(--accent-color);
+    transform-origin: bottom center;
+}
+
+/* Buttons */
+button {
+    background: transparent;
+    border: 1px solid var(--accent-color);
+    color: var(--accent-color);
+    padding: 0.75rem 1.5rem;
+    font-family: var(--font-main);
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+button:hover {
+    background: var(--accent-color);
+    color: var(--bg-color);
+    box-shadow: 0 0 15px var(--accent-color);
+}
+
+button.primary {
+    border-color: var(--secondary-color);
+    color: var(--secondary-color);
+}
+
+button.primary:hover {
+    background: var(--secondary-color);
+    color: white;
+    box-shadow: 0 0 15px var(--secondary-color);
+}
+
+/* Chat Section */
+.chat-container {
+    display: flex;
+    flex-direction: column;
+    height: 500px;
+}
+
+.chat-messages {
+    flex-grow: 1;
+    overflow-y: auto;
+    border: 1px solid var(--glass-border);
+    padding: 0.5rem;
+    margin-bottom: 0.5rem;
+    background: rgba(0, 0, 0, 0.2);
+}
+
+.chat-input-group {
+    display: flex;
+    gap: 0.5rem;
+}
+
+input[type="text"] {
+    background: rgba(0, 0, 0, 0.5);
+    border: 1px solid var(--glass-border);
+    color: var(--accent-color);
+    padding: 0.5rem;
+    flex-grow: 1;
+    font-family: var(--font-main);
+}
+
+input[type="text"]:focus {
+    outline: none;
+    border-color: var(--accent-color);
+}
+
+/* Audio Visualizer Placeholder */
+.visualizer {
+    height: 200px;
+    background: #000;
+    border: 1px solid var(--accent-color);
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: flex-end;
+    gap: 2px;
+    padding: 5px;
+}
+
+.bar {
+    flex-grow: 1;
+    background: var(--accent-color);
+    height: 20%;
+    animation: bounce 0.5s infinite alternate ease-in-out;
+    animation-play-state: paused;
+}
+
+@keyframes bounce {
+    from {
+        height: 20%;
+    }
+
+    to {
+        height: 80%;
+    }
+}

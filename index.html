@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RODYO // Decentralized Retro Radio</title>
+  <link rel="stylesheet" href="./style.css">
+</head>
+
+<body>
+  <div id="app">
+    <header>
+      <div class="logo-text"
+        style="font-size: 3rem; font-weight: bold; letter-spacing: 0.5rem; color: var(--accent-color); text-shadow: 0 0 10px var(--accent-color);">
+        RODYO</div>
+      <p id="station-tagline" style="margin-top: 0.5rem; opacity: 0.8;">P2P MESH BROADCASTING // ANALOG SOUL</p>
+    </header>
+
+    <main>
+      <!-- Setup / Onboarding Section -->
+      <section id="onboarding-ui" class="panel" style="max-width: 600px; margin: 2rem auto;">
+        <div class="panel-header">STATION INITIALIZATION</div>
+        <div class="settings-grid" style="display: grid; grid-template-columns: 1fr; gap: 1.5rem; margin-top: 1.5rem;">
+          <div class="field-group">
+            <label>Station Handle (Permanent Link)</label>
+            <input type="text" id="setting-handle" placeholder="e.g. pirate-radio-99">
+          </div>
+          <div class="field-group">
+            <label>Station Name</label>
+            <input type="text" id="setting-name" placeholder="Radio Freedom">
+          </div>
+          <div class="field-group">
+            <label>Genre / Tags</label>
+            <input type="text" id="setting-genre" placeholder="Lo-Fi / Synthwave">
+          </div>
+          <div class="field-group">
+            <label>UI Theme</label>
+            <select id="setting-theme">
+              <option value="matrix-green">Matrix Green (Default)</option>
+              <option value="cyber-pink">Cyber Pink</option>
+              <option value="amber-classic">Amber Classic</option>
+            </select>
+          </div>
+        </div>
+        <button id="btn-start-setup" class="primary" style="margin-top: 2rem; width: 100%; padding: 1rem;">Initialize
+          Station & Go to Dashboard</button>
+      </section>
+
+      <!-- Main Dashboard (Initially Hidden) -->
+      <div id="dashboard-ui" class="station-grid" style="display: none;">
+        <!-- Main Radio Controls & Visualizer -->
+        <div class="radio-core">
+          <section id="broadcaster-ui" class="panel">
+            <div class="panel-header">
+              <span>STATION DASHBOARD</span>
+              <span id="status-tag" style="color: var(--secondary-color);">[OFFLINE]</span>
+            </div>
+
+            <div class="visualizer" id="audio-visualizer">
+              <div class="bar"></div>
+              <div class="bar"></div>
+              <div class="bar"></div>
+              <div class="bar" style="animation-delay: 0.1s"></div>
+              <div class="bar" style="animation-delay: 0.2s"></div>
+            </div>
+
+            <div class="controls">
+              <div class="dial-group">
+                <button id="btn-start-broadcast" class="primary">Start Broadcast</button>
+                <button id="btn-stop-broadcast" style="display: none;">Stop</button>
+              </div>
+
+              <div class="info-group">
+                <p>Station ID: <span id="station-id-display">---</span></p>
+                <p>Listeners (Direct): <span id="listener-count">0</span></p>
+                <p>Total Reach: <span id="total-listener-count">0</span></p>
+                <p>Role: <span class="role-tag">SOURCE</span></p>
+              </div>
+
+              <!-- Listener Management (Broadcaster Only) -->
+              <div id="listener-mgmt"
+                style="margin-top: 1.5rem; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 1rem;">
+                <h4 style="font-size: 0.8rem; letter-spacing: 0.1rem; opacity: 0.7; margin-bottom: 0.5rem;">LISTENER
+                  MANAGEMENT</h4>
+                <div id="peer-list"
+                  style="font-size: 0.7rem; display: flex; flex-direction: column; gap: 0.5rem; max-height: 150px; overflow-y: auto;">
+                  <!-- Peer items will be injected here -->
+                  <p style="opacity: 0.5;">No active listeners.</p>
+                </div>
+              </div>
+
+              <button id="btn-edit-settings"
+                style="margin-top: 2rem; font-size: 0.7rem; opacity: 0.6; background: none; border: 1px dashed var(--accent-color); color: var(--accent-color); cursor: pointer; padding: 0.5rem;">[
+                Reconfigure Station ]</button>
+            </div>
+          </section>
+
+          <section id="listener-ui" class="panel" style="display: none;">
+            <div class="panel-header">
+              <span>TUNING IN...</span>
+              <span id="mesh-status" style="color: var(--secondary-color);">[Protocol: Mesh]</span>
+            </div>
+            <div class="visualizer" id="listener-visualizer">
+              <div class="bar"></div>
+              <div class="bar"></div>
+              <div class="bar"></div>
+            </div>
+            <div class="mesh-info" style="margin-bottom: 1rem; font-size: 0.9rem;">
+              <p>Role: <span id="listener-role">RELAY</span></p>
+              <p>Connected to: <span id="parent-node-id">---</span></p>
+            </div>
+            <button id="btn-tune-in" class="primary">Tune In</button>
+          </section>
+        </div>
+
+        <!-- Chat & Sidebar -->
+        <aside class="sidebar">
+          <div class="panel chat-container">
+            <div class="panel-header">LIVE CHAT</div>
+            <div class="chat-messages" id="chat-messages">
+              <div class="msg system">System: Welcome to the mesh network.</div>
+            </div>
+            <div class="chat-input-group">
+              <input type="text" id="chat-input" placeholder="Type a message...">
+              <button id="btn-send-chat">Send</button>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </main>
+  </div>
+  <script type="module" src="/main.js"></script>
+</body>
+
+</html>
