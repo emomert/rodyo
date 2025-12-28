@@ -54,16 +54,17 @@
         <div class="radio-core">
           <section id="broadcaster-ui" class="panel">
             <div class="panel-header">
-              <span>STATION DASHBOARD</span>
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <span>STATION DASHBOARD</span>
+                <div id="on-air-lamp"
+                  style="display: none; padding: 2px 8px; background: rgba(255,0,0,0.2); border: 1px solid #ff0000; color: #ff0000; font-size: 0.6rem; letter-spacing: 0.1rem; border-radius: 2px; animation: pulse-red 1.5s infinite;">
+                  ON AIR</div>
+              </div>
               <span id="status-tag" style="color: var(--secondary-color);">[OFFLINE]</span>
             </div>
 
-            <div class="visualizer" id="audio-visualizer">
-              <div class="bar"></div>
-              <div class="bar"></div>
-              <div class="bar"></div>
-              <div class="bar" style="animation-delay: 0.1s"></div>
-              <div class="bar" style="animation-delay: 0.2s"></div>
+            <div class="visualizer-container">
+              <canvas id="broadcaster-canvas"></canvas>
             </div>
 
             <div class="controls">
@@ -102,10 +103,8 @@
               <span>TUNING IN...</span>
               <span id="mesh-status" style="color: var(--secondary-color);">[Protocol: Mesh]</span>
             </div>
-            <div class="visualizer" id="listener-visualizer">
-              <div class="bar"></div>
-              <div class="bar"></div>
-              <div class="bar"></div>
+            <div class="visualizer-container">
+              <canvas id="listener-canvas"></canvas>
             </div>
             <div class="mesh-info" style="margin-bottom: 1rem; font-size: 0.9rem;">
               <p>Role: <span id="listener-role">RELAY</span></p>

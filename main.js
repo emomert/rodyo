@@ -11,6 +11,10 @@ const btnEditSettings = document.getElementById('btn-edit-settings');
 const btnStartBroadcast = document.getElementById('btn-start-broadcast');
 const btnStopBroadcast = document.getElementById('btn-stop-broadcast');
 const btnTuneIn = document.getElementById('btn-tune-in');
+const onAirLamp = document.getElementById('on-air-lamp');
+
+const broadcasterCanvas = document.getElementById('broadcaster-canvas');
+const listenerCanvas = document.getElementById('listener-canvas');
 
 const statusTag = document.getElementById('status-tag');
 const stationIdDisplay = document.getElementById('station-id-display');
@@ -40,6 +44,11 @@ let currentRemoteStream = null;
 let parentConn = null; // Connection to parent in mesh
 let childConns = []; // Connections to children in mesh
 let isBroadcaster = false;
+
+// Web Audio State
+let audioContext = null;
+let analyser = null;
+let animationId = null;
 
 // Peer Registry (Broadcaster only)
 let peerRegistry = {};
@@ -401,14 +410,14 @@ btnStartBroadcast.addEventListener('click', async () => {
         localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
         initPeer();
 
+        // Start Visualizer
+        startVisualizer(localStream, broadcasterCanvas);
+        if (onAirLamp) onAirLamp.style.display = 'block';
+
         btnStartBroadcast.style.display = 'none';
         btnStopBroadcast.style.display = 'inline-block';
 
-        document.querySelectorAll('#audio-visualizer .bar').forEach(bar => {
-            bar.style.animationPlayState = 'running';
-        });
-
-        addChatMessage('System', 'Broadcaster initialized in Star-Mesh mode.');
+        addChatMessage('System', 'Broadcaster initialized. Microphone captured.');
     } catch (err) {
         console.error('Failed to get local stream', err);
         addChatMessage('System', 'Error: Could not access microphone.');
@@ -452,9 +461,8 @@ function connectToNode(nodeId) {
         call.on('stream', (remoteStream) => {
             handleRemoteStream(remoteStream);
         });
+        setupMeshConnection(conn, false);
     });
-
-    setupMeshConnection(conn, false);
 }
 
 function handleRemoteStream(stream) {
@@ -465,33 +473,80 @@ function handleRemoteStream(stream) {
             console.error('Audio playback failed:', err);
             addChatMessage('System', '⚠️ Audio blocked by browser. Please tap the screen to enable sound.');
 
-            // Fallback: unlock on next click anywhere
             const unlock = () => {
                 remoteAudio.play();
                 document.removeEventListener('click', unlock);
             };
             document.addEventListener('click', unlock);
         });
+
+        startVisualizer(stream, listenerCanvas);
     }
     addChatMessage('System', 'Streaming audio started.');
+}
 
-    // Start visualizer animation
-    document.querySelectorAll('#listener-visualizer .bar').forEach(bar => {
-        bar.style.animationPlayState = 'running';
-    });
+function startVisualizer(stream, canvas) {
+    if (!canvas) return;
 
-    // Now that we have a stream, we can relay it to our own children (if any yet)
-    // But wait, children connect to us, we don't 'push' the call. 
-    // peer.on('call') handles answering with currentRemoteStream.
+    if (audioContext) audioContext.close();
+    if (animationId) cancelAnimationFrame(animationId);
+
+    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    analyser = audioContext.createAnalyser();
+    const source = audioContext.createMediaStreamSource(stream);
+    source.connect(analyser);
+
+    analyser.fftSize = 256;
+    const bufferLength = analyser.frequencyBinCount;
+    const dataArray = new Uint8Array(bufferLength);
+
+    const ctx = canvas.getContext('2d');
+
+    const resize = () => {
+        if (!canvas.clientWidth) return;
+        canvas.width = canvas.clientWidth * window.devicePixelRatio;
+        canvas.height = canvas.clientHeight * window.devicePixelRatio;
+    };
+    window.addEventListener('resize', resize);
+    resize();
+
+    function draw() {
+        animationId = requestAnimationFrame(draw);
+        analyser.getByteTimeDomainData(dataArray);
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        const color = getComputedStyle(document.body).getPropertyValue('--accent-color').trim();
+
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = color;
+        ctx.beginPath();
+
+        const sliceWidth = canvas.width / bufferLength;
+        let x = 0;
+
+        for (let i = 0; i < bufferLength; i++) {
+            const v = dataArray[i] / 128.0;
+            const y = (v * canvas.height) / 2;
+
+            if (i === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+
+            x += sliceWidth;
+        }
+
+        ctx.lineTo(canvas.width, canvas.height / 2);
+        ctx.stroke();
+    }
+
+    draw();
 }
 
 // Chat & Data Relay
 function relayData(data, sourceConn) {
-    // 1. Send to parent (if not source)
     if (parentConn && parentConn !== sourceConn && parentConn.open) {
         parentConn.send(data);
     }
-    // 2. Send to children (if not source)
     childConns.forEach(conn => {
         if (conn !== sourceConn && conn.open) {
             conn.send(data);
@@ -520,8 +575,6 @@ function sendChat() {
 }
 
 function updateListenerCountDisplay() {
-    // Total count in mesh is hard to know without global state
-    // Let's show direct children for now
     listenerCountDisplay.textContent = childConns.length;
 }
 
